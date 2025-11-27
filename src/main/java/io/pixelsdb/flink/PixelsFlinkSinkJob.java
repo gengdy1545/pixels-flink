@@ -7,7 +7,7 @@
  * "License"); you may not use this file except in compliance
  * with the License.  You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -23,19 +23,20 @@ import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.DataStreamSink;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.util.ParameterTool;
+import org.apache.flink.util.ParameterTool;
 import org.apache.iceberg.Table;
-import org.apache.iceberg.aws.glue.GlueCatalog;
+import org.apache.iceberg.aws.glue.GlueCatalog; // 使用 GlueCatalog
 import org.apache.iceberg.flink.sink.FlinkSink;
 import org.apache.flink.table.data.RowData;
 
 import org.apache.iceberg.catalog.TableIdentifier;
+import java.util.List; // 导入 List 用于获取等值字段
+import java.util.Set;
 
 
 public class PixelsFlinkSinkJob
 {
-
-    // 假设您将 Hive Metastore URI 作为一个参数传入
-    private static final String HIVE_METASTORE_URI = "hive.metastore.uri";
+    // 定义常量以避免硬编码参数名
     private static final String CATALOG_NAME = "catalog.name";
 
 
@@ -48,21 +49,31 @@ public class PixelsFlinkSinkJob
         // 确保传递了所有必要的参数
         params.getRequired("source");
         String serverHost = params.getRequired("source.server.host");
-        int serverPort = params.getInt("source.server.port"); // 可以是可选
+        // 假设默认端口为 8080
+        int serverPort = params.getInt("source.server.port", 8080);
         String databaseName = params.getRequired("source.database.name"); // 使用更标准的数据库名
         String tableName = params.getRequired("source.tablename");
+
+        // Flink Job 参数
+        int sinkParallelism = params.getInt("sink.parallelism", 4);
+        long checkpointInterval = params.getLong("checkpoint.interval.ms", 5000L);
+
 
         // --- 2. Flink 环境设置 ---
 
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
         // 推荐设置 Checkpoint，Iceberg Sink 依赖它来保证写入一致性
-        env.enableCheckpointing(5000); // 5秒一次 Checkpoint
+        env.enableCheckpointing(checkpointInterval);
+
+        // 设置默认并行度
+        env.setParallelism(params.getInt("job.parallelism", 1));
+
 
         // --- 3. 初始化 Iceberg Table 对象 ---
 
         // Flink Job 需要一个 Table 对象来配置 Sink
-        Table table = initializeIcebergTable(
-                params.get("catalog.name", "catalog"),
+        Table targetTable = initializeIcebergTable(
+                params.get(CATALOG_NAME, "glue_catalog"), // 默认使用 glue_catalog
                 databaseName,
                 tableName
         );
@@ -78,22 +89,35 @@ public class PixelsFlinkSinkJob
                 .map(new ProtobufToRowDataMapFunction())
                 .name("protobuf-to-rowdata-converter");
 
-        // FlinkSink.forRowData(...).table(table).build()
-        // 已经完成了 Sink 的附加，返回 DataStreamSink 实例
-        DataStreamSink<RowData> sink = FlinkSink.forRowData(pixelsRowDataStream)
-                .table(table)
-                // 写入策略和并发度配置（可选，但推荐）
-                .overwrite(false) // 默认为 false，设置为 true 需谨慎
-                .build();
+        // --- 5. Iceberg Sink ---
+
+        FlinkSink.Builder sinkBuilder = FlinkSink.forRowData(pixelsRowDataStream)
+                .table(targetTable)
+                .overwrite(false); // 避免意外覆盖
+
+        // 从 Iceberg Table Schema 中获取等值字段 (Equality Fields) 实现 Upsert
+        // Iceberg 标识符字段（Identifier Fields）就是用于 Upsert 的键。
+        Set<String> equalityFields = targetTable.schema().identifierFieldNames();
+
+        if (equalityFields != null && !equalityFields.isEmpty()) {
+            System.out.println("Enabling Upsert mode by reading equality fields from Table Schema: " + equalityFields);
+            sinkBuilder.equalityFieldColumns((List<String>) equalityFields);
+        } else {
+            System.out.println("No identifier fields found in Iceberg Table schema. Sink will perform normal append/delete based on RowKind.");
+        }
+
+
+        // 附加到流环境并构建 Sink
+        DataStreamSink<RowData> sink = sinkBuilder.build();
 
         // 在返回的 DataStreamSink 对象上设置名称
-        sink.name("iceberg-sink");
+        sink.name("iceberg-sink-to-" + databaseName + "." + tableName);
 
-        env.execute("Iceberg Sink " + databaseName + " " + tableName);
+        env.execute("Pixels Flink CDC Sink Job");
     }
 
     /**
-     * 初始化 Iceberg Table 对象，使用 HiveCatalog 示例
+     * 初始化 Iceberg Table 对象，使用 GlueCatalog 示例
      */
     private static Table initializeIcebergTable(
             String catalogName,
@@ -102,7 +126,9 @@ public class PixelsFlinkSinkJob
 
 
         GlueCatalog glueCatalog = new GlueCatalog();
-        // glueCatalog.initialize();
+        // 需要在此处配置 AWS 认证信息并调用 glueCatalog.initialize()，
+        // 例如：glueCatalog.initialize(catalogName, properties);
+
         TableIdentifier tableIdentifier = TableIdentifier.of(databaseName, tableName);
 
         if (!glueCatalog.tableExists(tableIdentifier)) {
