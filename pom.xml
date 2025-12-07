@@ -20,11 +20,11 @@ under the License.
 		 xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 
-	<artifactId>flink</artifactId>
+	<artifactId>pixels-flink</artifactId>
 	<version>0.1</version>
 	<packaging>jar</packaging>
-
-	<name>Flink Walkthrough DataStream Java</name>
+    <groupId>io.pixelsdb</groupId>
+	<name>Pixels Flink RPC Source</name>
 	<url>https://flink.apache.org</url>
 	<parent>
 		<groupId>io.pixelsdb</groupId>
@@ -38,7 +38,6 @@ under the License.
 		<maven.compiler.source>${target.java.version}</maven.compiler.source>
 		<maven.compiler.target>${target.java.version}</maven.compiler.target>
 		<log4j.version>2.24.3</log4j.version>
-        <hadoop.version>3.3.6</hadoop.version>
         <pixels.version>0.2.0-SNAPSHOT</pixels.version>
 	</properties>
 
@@ -114,17 +113,6 @@ under the License.
 			<scope>runtime</scope>
 		</dependency>
 
-        <dependency>
-            <groupId>org.apache.iceberg</groupId>
-            <artifactId>iceberg-core</artifactId>
-            <version>1.2.0</version>
-        </dependency>
-        <!-- https://mvnrepository.com/artifact/org.apache.iceberg/iceberg-flink-runtime -->
-        <dependency>
-            <groupId>org.apache.iceberg</groupId>
-            <artifactId>iceberg-flink-runtime</artifactId>
-            <version>0.12.1</version>
-        </dependency>
         <!-- https://mvnrepository.com/artifact/org.apache.flink/flink-table -->
         <dependency>
             <groupId>org.apache.flink</groupId>
@@ -168,19 +156,6 @@ under the License.
             <type>test-jar</type>
             <scope>test</scope>
         </dependency>
-        <dependency>
-            <groupId>org.apache.hadoop</groupId>
-            <artifactId>hadoop-common</artifactId>
-            <version>${hadoop.version}</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.hadoop</groupId>
-            <artifactId>hadoop-client</artifactId>
-            <version>${hadoop.version}</version>
-            <scope>provided</scope>
-        </dependency>
-
 
 		<dependency>
 			<groupId>io.grpc</groupId>
@@ -194,6 +169,26 @@ under the License.
 			<groupId>io.grpc</groupId>
 			<artifactId>grpc-stub</artifactId>
 		</dependency>
+
+
+        <dependency>
+            <groupId>org.apache.flink</groupId>
+            <artifactId>flink-test-utils</artifactId>
+            <version>${flink.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.flink</groupId>
+            <artifactId>flink-table-api-java</artifactId>
+            <version>${flink.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.flink</groupId>
+            <artifactId>flink-table-planner-loader</artifactId>
+            <version>${flink.version}</version>
+            <scope>test</scope>
+        </dependency>
 	</dependencies>
 
 	<build>

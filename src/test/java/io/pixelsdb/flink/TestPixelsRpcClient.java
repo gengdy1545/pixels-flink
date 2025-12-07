@@ -1,11 +1,13 @@
 package io.pixelsdb.flink;
 
+import io.pixelsdb.flink.source.PixelsRpcClient;
 import io.pixelsdb.pixels.sink.SinkProto;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
-public class TestPixelsRpcClient {
+public class TestPixelsRpcClient
+{
     @Test
     public void testPollEvent()
     {
@@ -15,7 +17,7 @@ public class TestPixelsRpcClient {
         int port = 9091;
         PixelsRpcClient pixelsRpcClient = new PixelsRpcClient(host, port);
         List<SinkProto.RowRecord> recordsList = pixelsRpcClient.pollEvents(schemaName, tableName);
-        for(SinkProto.RowRecord record: recordsList)
+        for (SinkProto.RowRecord record : recordsList)
         {
             record.getAfter();
         }

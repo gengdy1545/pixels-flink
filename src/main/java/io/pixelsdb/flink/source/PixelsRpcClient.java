@@ -1,4 +1,4 @@
-package io.pixelsdb.flink;
+package io.pixelsdb.flink.source;
 
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
@@ -11,42 +11,51 @@ import java.io.Closeable;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
-public class PixelsRpcClient implements Closeable {
+public class PixelsRpcClient implements Closeable
+{
     private static final Logger LOG = LoggerFactory.getLogger(PixelsRpcClient.class);
 
     private final ManagedChannel channel;
     private final PixelsPollingServiceGrpc.PixelsPollingServiceBlockingStub blockingStub;
 
-    public PixelsRpcClient(String host, int port) {
+    public PixelsRpcClient(String host, int port)
+    {
         this(ManagedChannelBuilder.forAddress(host, port)
                 .usePlaintext()
                 .build());
     }
 
-    PixelsRpcClient(ManagedChannel channel) {
+    PixelsRpcClient(ManagedChannel channel)
+    {
         this.channel = channel;
         this.blockingStub = PixelsPollingServiceGrpc.newBlockingStub(channel);
     }
 
-    public List<SinkProto.RowRecord> pollEvents(String schemaName, String tableName) {
+    public List<SinkProto.RowRecord> pollEvents(String schemaName, String tableName)
+    {
         SinkProto.PollRequest request = SinkProto.PollRequest.newBuilder()
                 .setSchemaName(schemaName)
                 .setTableName(tableName)
                 .build();
-        try {
+        try
+        {
             SinkProto.PollResponse pollResponse = blockingStub.pollEvents(request);
             return pollResponse.getRecordsList();
-        } catch (Exception e) {
+        } catch (Exception e)
+        {
             LOG.error("RPC call failed: {}", e.getMessage());
             throw e;
         }
     }
 
     @Override
-    public void close() {
-        try {
+    public void close()
+    {
+        try
+        {
             channel.shutdown().awaitTermination(5, TimeUnit.SECONDS);
-        } catch (InterruptedException e) {
+        } catch (InterruptedException e)
+        {
             LOG.warn("Interrupted during shutdown", e);
             Thread.currentThread().interrupt();
         }
